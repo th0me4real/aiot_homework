@@ -1,0 +1,512 @@
+<html>
+  <head>
+    <base href="https://pos.websim.ai/" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSim POS System</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      [v-cloak] {
+        display: none;
+      }
+      .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 16px;
+      }
+      .title-bar {
+        background-color: #1976d2 !important;
+      }
+      .menu {
+        background-color: #e0f2f1 !important;
+      }
+      .login-btn {
+        margin-top: auto !important;
+        margin-bottom: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" v-cloak>
+      <v-app>
+        <v-app-bar app color="primary" class="title-bar" dark>
+          <v-toolbar-title>WebSim POS System</v-toolbar-title>
+          <v-spacer></v-spacer>
+          <v-btn icon @click="showCart = !showCart">
+            <v-badge
+              :content="cartItemCount"
+              :value="cartItemCount"
+              color="green"
+              overlap
+            >
+              <v-icon>mdi-cart</v-icon>
+            </v-badge>
+          </v-btn>
+        </v-app-bar>
+
+        <v-navigation-drawer app permanent width="250" class="menu">
+          <v-list nav dense>
+            <v-subheader>All Categories</v-subheader>
+            <v-list-group
+              v-for="category in categories"
+              :key="category.name"
+              :value="category.expanded"
+              @click="toggleCategory(category)"
+              no-action
+            >
+              <template v-slot:activator>
+                <v-list-item-title>{{ category.name }}</v-list-item-title>
+              </template>
+              <v-list-item
+                v-for="product in category.products"
+                :key="product.id"
+                @click="filterProductsByCategory(category.name)"
+              >
+                <v-list-item-content>
+                  <v-list-item-title>{{ product.name }}</v-list-item-title>
+                </v-list-item-content>
+              </v-list-item>
+            </v-list-group>
+          </v-list>
+
+          <v-divider></v-divider>
+          <v-btn
+            class="ml-3 mb-3 mt-auto login-btn"
+            color="primary"
+            @click="showLoginDialog = true"
+          >
+            Login
+          </v-btn>
+        </v-navigation-drawer>
+
+        <v-main>
+          <v-container>
+            <v-row>
+              <v-col cols="12">
+                <h2 class="mb-4">Products</h2>
+                <div class="product-grid">
+                  <v-card
+                    v-for="product in displayedProducts"
+                    :key="product.id"
+                    outlined
+                    class="ma-2"
+                  >
+                    <v-img
+                      :src="product.image"
+                      height="150"
+                      :alt="product.name"
+                    ></v-img>
+                    <v-card-title>{{ product.name }}</v-card-title>
+                    <v-card-text>
+                      <div>${{ product.price.toFixed(2) }}</div>
+                    </v-card-text>
+                    <v-card-actions>
+                      <v-btn color="primary" text @click="addToCart(product)">
+                        Add to Cart
+                      </v-btn>
+                    </v-card-actions>
+                  </v-card>
+                </div>
+              </v-col>
+
+              <v-col cols="12">
+                <v-navigation-drawer
+                  v-model="showCart"
+                  absolute
+                  temporary
+                  right
+                  width="400"
+                >
+                  <v-list-item>
+                    <v-list-item-content>
+                      <v-list-item-title class="title">
+                        Shopping Cart
+                      </v-list-item-title>
+                    </v-list-item-content>
+                  </v-list-item>
+
+                  <v-divider></v-divider>
+
+                  <v-list dense>
+                    <v-list-item v-for="(item, index) in cart" :key="index">
+                      <v-list-item-content>
+                        <v-list-item-title>{{ item.name }}</v-list-item-title>
+                        <v-list-item-subtitle>
+                          ${{ item.price.toFixed(2) }} x {{ item.quantity }}
+                        </v-list-item-subtitle>
+                      </v-list-item-content>
+                      <v-list-item-action>
+                        <v-btn icon @click="removeFromCart(index)">
+                          <v-icon>mdi-delete</v-icon>
+                        </v-btn>
+                      </v-list-item-action>
+                    </v-list-item>
+                  </v-list>
+
+                  <v-divider></v-divider>
+
+                  <v-list-item>
+                    <v-list-item-content>
+                      <v-list-item-title class="title">
+                        Total: ${{ cartTotal.toFixed(2) }}
+                      </v-list-item-title>
+                    </v-list-item-content>
+                  </v-list-item>
+
+                  <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn color="primary" @click="checkout"> Checkout </v-btn>
+                  </v-card-actions>
+                </v-navigation-drawer>
+              </v-col>
+            </v-row>
+          </v-container>
+        </v-main>
+
+        <!-- Login/Register Dialog -->
+        <v-dialog v-model="showLoginDialog" persistent max-width="400px">
+          <v-card>
+            <v-card-title class="headline">Login/Register</v-card-title>
+            <v-card-text>
+              <v-tabs v-model="loginTab">
+                <v-tab>Login</v-tab>
+                <v-tab>Register</v-tab>
+              </v-tabs>
+              <v-tabs-items v-model="loginTab">
+                <v-tab-item>
+                  <v-form>
+                    <v-text-field
+                      v-model="loginForm.username"
+                      label="Username"
+                      required
+                    ></v-text-field>
+                    <v-text-field
+                      v-model="loginForm.password"
+                      label="Password"
+                      type="password"
+                      required
+                    ></v-text-field>
+                    <v-btn @click="login" color="primary"> Login </v-btn>
+                  </v-form>
+                </v-tab-item>
+                <v-tab-item>
+                  <v-form>
+                    <v-text-field
+                      v-model="registerForm.username"
+                      label="Username"
+                      required
+                    ></v-text-field>
+                    <v-text-field
+                      v-model="registerForm.password"
+                      label="Password"
+                      type="password"
+                      required
+                    ></v-text-field>
+                    <v-btn @click="register" color="primary"> Register </v-btn>
+                  </v-form>
+                </v-tab-item>
+              </v-tabs-items>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn color="primary" @click="showLoginDialog = false">
+                Close
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Admin Panel -->
+        <v-dialog v-model="showAdminPanel" persistent max-width="600px">
+          <v-card>
+            <v-card-title class="headline">Admin Panel</v-card-title>
+            <v-card-text>
+              <v-form ref="form">
+                <v-text-field
+                  v-model="newCategory.name"
+                  label="New Category Name"
+                  required
+                ></v-text-field>
+                <v-btn @click="addCategory" color="primary">
+                  Add Category
+                </v-btn>
+                <v-divider class="my-4"></v-divider>
+                <v-select
+                  v-model="selectedCategory"
+                  :items="categories.map(c => c.name)"
+                  label="Select Category"
+                ></v-select>
+                <v-text-field
+                  v-model="newProduct.name"
+                  label="Product Name"
+                  required
+                ></v-text-field>
+                <v-text-field
+                  v-model="newProduct.price"
+                  label="Product Price"
+                  required
+                  type="number"
+                ></v-text-field>
+                <v-text-field
+                  v-model="newProduct.image"
+                  label="Image URL"
+                  required
+                ></v-text-field>
+                <v-btn @click="addProduct" color="primary"> Add Product </v-btn>
+              </v-form>
+              <v-divider class="my-4"></v-divider>
+              <v-select
+                v-model="deleteCategory"
+                :items="categories.map(c => c.name)"
+                label="Delete Category"
+              ></v-select>
+              <v-btn @click="removeCategory" color="red">
+                Delete Category
+              </v-btn>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn color="primary" @click="showAdminPanel = false">
+                Close
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+      </v-app>
+    </div>
+
+    <script>
+      new Vue({
+        el: "#app",
+        vuetify: new Vuetify(),
+        data: {
+          showCart: false,
+          showAdminPanel: false,
+          showLoginDialog: false,
+          loginTab: "Login", // Set default tab to Login
+          activeCategory: null,
+          deleteCategory: null,
+          selectedCategory: null,
+          newCategory: {
+            name: "",
+          },
+          newProduct: {
+            name: "",
+            price: "",
+            image: "",
+          },
+          loginForm: {
+            username: "",
+            password: "",
+          },
+          registerForm: {
+            username: "",
+            password: "",
+          },
+          categories: [
+            {
+              name: "Apparel",
+              expanded: false,
+              products: [
+                { id: 1, name: "T-Shirt" },
+                { id: 2, name: "Jeans" },
+                { id: 5, name: "Jacket" },
+              ],
+            },
+            {
+              name: "Footwear",
+              expanded: false,
+              products: [
+                { id: 3, name: "Sneakers" },
+                { id: 6, name: "Socks" },
+              ],
+            },
+            {
+              name: "Accessories",
+              expanded: false,
+              products: [{ id: 4, name: "Hat" }],
+            },
+          ],
+          products: [
+            {
+              id: 1,
+              name: "T-Shirt",
+              price: 19.99,
+              image: "https://via.placeholder.com/150?text=T-Shirt",
+              category: "Apparel",
+            },
+            {
+              id: 2,
+              name: "Jeans",
+              price: 49.99,
+              image: "https://via.placeholder.com/150?text=Jeans",
+              category: "Apparel",
+            },
+            {
+              id: 3,
+              name: "Sneakers",
+              price: 79.99,
+              image: "https://via.placeholder.com/150?text=Sneakers",
+              category: "Footwear",
+            },
+            {
+              id: 4,
+              name: "Hat",
+              price: 14.99,
+              image: "https://via.placeholder.com/150?text=Hat",
+              category: "Accessories",
+            },
+            {
+              id: 5,
+              name: "Jacket",
+              price: 89.99,
+              image: "https://via.placeholder.com/150?text=Jacket",
+              category: "Apparel",
+            },
+            {
+              id: 6,
+              name: "Socks",
+              price: 9.99,
+              image: "https://via.placeholder.com/150?text=Socks",
+              category: "Footwear",
+            },
+          ],
+          cart: [],
+          users: [], // Holds registered users
+        },
+        computed: {
+          cartItemCount() {
+            return this.cart.reduce((total, item) => total + item.quantity, 0);
+          },
+          cartTotal() {
+            return this.cart.reduce(
+              (total, item) => total + item.price * item.quantity,
+              0
+            );
+          },
+          displayedProducts() {
+            if (this.activeCategory) {
+              return this.products.filter(
+                (product) => product.category === this.activeCategory
+              );
+            }
+            return this.products;
+          },
+        },
+        methods: {
+          addToCart(product) {
+            const existingItem = this.cart.find(
+              (item) => item.id === product.id
+            );
+            if (existingItem) {
+              existingItem.quantity += 1;
+            } else {
+              this.cart.push({ ...product, quantity: 1 });
+            }
+          },
+          removeFromCart(index) {
+            this.cart.splice(index, 1);
+          },
+          checkout() {
+            alert(
+              `Thank you for your purchase! Total: $${this.cartTotal.toFixed(
+                2
+              )}`
+            );
+            this.cart = [];
+            this.showCart = false;
+          },
+          filterProductsByCategory(categoryName) {
+            this.activeCategory =
+              this.activeCategory === categoryName ? null : categoryName;
+          },
+          toggleCategory(category) {
+            category.expanded = !category.expanded;
+          },
+          addCategory() {
+            if (this.newCategory.name) {
+              this.categories.push({
+                name: this.newCategory.name,
+                expanded: false,
+                products: [],
+              });
+              this.newCategory.name = "";
+            }
+          },
+          addProduct() {
+            if (
+              this.newProduct.name &&
+              this.newProduct.price &&
+              this.selectedCategory
+            ) {
+              const category = this.categories.find(
+                (cat) => cat.name === this.selectedCategory
+              );
+              category.products.push({
+                id: this.products.length + 1,
+                name: this.newProduct.name,
+              });
+              this.products.push({
+                id: this.products.length + 1,
+                name: this.newProduct.name,
+                price: Number(this.newProduct.price),
+                image: this.newProduct.image,
+                category: this.selectedCategory,
+              });
+              this.newProduct.name = "";
+              this.newProduct.price = "";
+              this.newProduct.image = "";
+            }
+          },
+          removeCategory() {
+            if (this.deleteCategory) {
+              this.categories = this.categories.filter(
+                (cat) => cat.name !== this.deleteCategory
+              );
+              this.products = this.products.filter(
+                (prod) => prod.category !== this.deleteCategory
+              );
+              this.deleteCategory = null;
+            }
+          },
+          register() {
+            const { username, password } = this.registerForm;
+            if (username && password) {
+              this.users.push({ username, password });
+              alert("Registration successful!");
+              this.registerForm.username = "";
+              this.registerForm.password = "";
+            } else {
+              alert("Please fill in both fields.");
+            }
+          },
+          login() {
+            const { username, password } = this.loginForm;
+            const user = this.users.find(
+              (user) => user.username === username && user.password === password
+            );
+            if (user) {
+              this.showAdminPanel = true;
+              this.showLoginDialog = false;
+              // Reset login form
+              this.loginForm.username = "";
+              this.loginForm.password = "";
+            } else {
+              alert("Invalid login credentials.");
+            }
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
+```
